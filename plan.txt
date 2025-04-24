@@ -1,0 +1,112 @@
+When RealESRGAN is not enough…
+RealESRGAN is a powerful model that upscales low-resolution images and makes them crisp and clean. Smoothing is performed so that even when enlarged, the pixels do not become coarse and the texture becomes smooth.
+
+[Upscale the cat image by 4 times]
+
+
+original
+
+upscale 4 times
+However, if you take a closer look at the results, you may find that smoothing can cause details to be lost or become too sharp, resulting in artifacts.
+
+To solve this, you can additionally train RealESRGAN with your own dataset to get the texture you want.
+
+This time, we additionally trained the high-resolution cat image dataset to be able to express more detailed fur.
+
+
+RealESRGAN pre-trained model
+
+RealESRGAN additionally trained with cat images
+The fur is more defined.
+
+Install RealESRGAN
+git clone https://github.com/xinntao/Real-ESRGAN.git
+cd Real-ESRGAN
+pip install basicsr
+pip install facexlib
+pip install gfpgan
+pip install -r requirements.txt
+python setup.py develop
+Prepare the data
+1. Collect images
+Collect images with the desired resolution as a result of super resolution and organize them into one directory.
+This time we have collected images of cats.
+
+
+Image sizes can vary.
+Create a folder structure like the one below.
+
+RealESRGAN
+ |__datasets
+     |__own_dataset_root
+         |__own_images # your custom images
+             |__image0.jpg
+             |__image1.jpg
+             |__...
+         
+2. Create data with lower resolution
+Create low-resolution data by multiplying the above image by 0.75 times, 0.5 times, and 0.33 times using the script.
+
+python scripts/generate_multiscale_DF2K.py --input datasets/own_dataset_root/own_images --output datasets/own_dataset_root/own_images_multiscale
+Make the following your own.
+
+— input: Directory for original images (collected high-resolution images)
+— output Directory where low-resolution images are saved.
+
+3. Create a meta information text file
+The script creates a text file containing a list of image file paths.
+
+python scripts/generate_meta_info.py --input datasets/own_dataset_root/own_images datasets/own_dataset_root/own_images_multiscale --root datasets/own_dataset_root datasets/own_dataset_root --meta_info datasets/own_dataset_root/meta_info/meta_info_own_imagesmultiscale.txt
+Specify the following:
+— input: Specify the original image directory and the low-resolution image directory consecutively.
+— root: Specify the path of the parent directory where the input directory exists.
+— meta_info Path where meta information text files are saved.
+
+The input image path is listed in the meta information text file as shown below.
+
+own_images/image0.jpg
+own_images/image1.jpg
+...
+own_images_multiscale/image0.jpg
+own_images_multiscale/image1.jpg
+...
+Download pre-trained model
+wget https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth -P experiments/pretrained_models
+wget https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.2.3/RealESRGAN_x4plus_netD.pth -P experiments/pretrained_models
+Rewrite part of the training configuration file
+Partially rewrite options/finetune_realesrgan_x4plus.yml.
+
+datasets:
+  train:
+    name: own_dataset
+    type: RealESRGANDataset
+    dataroot_gt: datasets/own_dataset_root
+    meta_info: datasets/own_dataset_root/meta_info/meta_info_GIRLmultiscale.txt
+Rewrite the following items in datasets/train.
+
+name: Give your own name
+dataroot_gt: Path to the parent directory where the input image directory exists
+meta_info: Path to the meta information text file
+
+path:
+  # use the pre-trained Real-ESRNet model
+  pretrain_network_g: experiments/pretrained_models/RealESRNet_x4plus.pth
+Rewrite pretrain_network_g: to experiments/pretrained_models/RealESRGAN_x4plus.pth.
+
+logger:
+  print_freq: 100
+  save_checkpoint_freq: !!float 5e3
+save_checkpoint_freq: Specify how many iters to save model checkpoints of training results. (Specify with numbers such as 100 or 1000)
+
+training
+Run the training script.
+Specify the following:
+
+python realesrgan/train.py -opt options/finetune_realesrgan_x4plus.yml --auto_resume
+The model checkpoint file of the training results is saved in experiments/finetune_RealESRGANx4plus_400k.
+
+Inference with your own trained model
+python inference_realesrgan.py -n RealESRGAN_x4plus -i inputs --outscale 4 --model_path experiments/finetune_RealESRGANx4plus_400k/models/net_g_160.pth
+Specify the following:
+— inputs: Input image directory for inference
+— -model_path: Path to checkpoint files generated during training
