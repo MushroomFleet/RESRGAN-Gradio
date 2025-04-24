@@ -8,7 +8,7 @@ pip install -r requirements.txt
 pip install basicsr
 pip install facexlib
 pip install gfpgan
-pip install gradio==4.0.0
+pip install gradio==4.44.1
 
 echo Setting up Real-ESRGAN...
 python setup.py develop
